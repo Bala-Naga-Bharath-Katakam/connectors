@@ -1,28 +1,38 @@
 # Kafka Postgres Connector
 
-## Overview
+This project demonstrates custom **Kafka Connectors** for PostgreSQL as both a **Source Connector** (pushing data from PostgreSQL to a Kafka topic) and a **Sink Connector** (reading data from a Kafka topic and inserting it into PostgreSQL).
 
-This project implements a custom Kafka connector for Apache Kafka Connect, enabling data transfer between a Kafka topic and a PostgreSQL database. It consists of a source connector that reads data from a Kafka topic and writes it to PostgreSQL, as well as a sink connector that reads data from PostgreSQL and writes it to a Kafka topic.
+## Table of Contents
 
-## Features
+- [Requirements](#requirements)
+- [Project Structure](#project-structure)
+- [Building the Project](#building-the-project)
+- [Deploying the Custom Kafka Connectors](#deploying-the-custom-kafka-connectors)
+- [Kafka Connect Configuration](#kafka-connect-configuration)
+- [Connector Configuration](#connector-configuration)
+   - [Source Connector](#source-connector)
+   - [Sink Connector](#sink-connector)
+- [Starting Kafka Connect](#starting-kafka-connect)
+   - [Standalone Mode](#standalone-mode)
+   - [Distributed Mode](#distributed-mode)
+- [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
 
-- **Source Connector**: Reads messages from a Kafka topic and writes them to PostgreSQL.
-- **Sink Connector**: Reads rows from a PostgreSQL table and sends them to a Kafka topic.
-- **Supports Avro Schema**: Integrates with Kafka's Avro serialization for structured data handling.
+## Requirements
 
-## Getting Started
+- **Apache Kafka** (with Kafka Connect)
+- **PostgreSQL** (with a sample database)
+- **Maven** (for building the project)
+- **JDK 8+**
 
-### Prerequisites
 
-- Java 8 or higher
-- Apache Kafka
-- PostgreSQL
-- Maven
-- Confluent Schema Registry (if using Avro)
+## Building the Project
 
-### Installation
+1. Clone the repository and navigate to the project directory:
 
-1. **Clone the repository**:
    ```bash
-   git clone https://github.com/YourUsername/connectors.git
-   cd connectors
+   git clone <repository-url>
+   cd kafka-postgres-connector
+   
+2. Build the project using Maven. This will package your code and dependencies into a single JAR file:
+    mvn clean package
+4. 
