@@ -1,11 +1,11 @@
 package com.easycoding.connectors.source;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.sql.*;
 import java.util.List;
 import java.util.Map;
 
@@ -15,64 +15,69 @@ import org.apache.kafka.connect.source.SourceTask;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.*;
-
+@Slf4j
 public class PostgresSourceTask extends SourceTask {
+
     private Connection connection;
-    private String topic;
+    private String selectQuery = "SELECT id, value FROM my_table WHERE id > ? ORDER BY id ASC";
+    private long lastId = 0;
 
     @Override
-    public void start(Map<String, String> props) {
-        topic = props.get("topic");
+    public String version() {
+        return new PostgresSourceConnector().version();
+    }
+
+    @Override
+    public void start(Map<String, String> config) throws RuntimeException {
+        log.info("PostgresSourceTask starting with config: {}", config);
+
         try {
-            connection = DriverManager.getConnection(props.get("db.url"), props.get("db.user"), props.get("db.password"));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to establish PostgreSQL connection", e);
+            String url = config.get("postgres.url");
+            String username = config.get("postgres.username");
+            String password = config.get("postgres.password");
+            connection = DriverManager.getConnection(url, username, password);
+            log.info("Connected to Postgres at {}", url);
+        } catch (SQLException e) {
+            log.error("Failed to connect to Postgres", e);
+            throw new ConnectException("Failed to connect to Postgres", e);
         }
     }
 
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
+        log.info("Polling new records from Postgres starting from id {}", lastId);
         List<SourceRecord> records = new ArrayList<>();
-        try {
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery("SELECT id, name, email FROM users WHERE processed = false LIMIT 10");
 
-            while (rs.next()) {
-                Map<String, Object> sourcePartition = Collections.singletonMap("db", "postgres");
-                Map<String, Object> sourceOffset = Collections.singletonMap("lastId", rs.getInt("id"));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectQuery)) {
+            preparedStatement.setLong(1, lastId);
+            ResultSet resultSet = preparedStatement.executeQuery();
 
-                Map<String, Object> value = new HashMap<>();
-                value.put("id", rs.getInt("id"));
-                value.put("name", rs.getString("name"));
-                value.put("email", rs.getString("email"));
+            while (resultSet.next()) {
+                long id = resultSet.getLong("id");
+                String value = resultSet.getString("value");
 
-                records.add(new SourceRecord(sourcePartition, sourceOffset, topic, Schema.STRING_SCHEMA, value.toString()));
+                log.debug("Fetched record: id={}, value={}", id, value);
+                records.add(new SourceRecord(null, null, "kafka-topic", Schema.INT32_SCHEMA, id, Schema.STRING_SCHEMA, value));
+                lastId = id;
             }
-
-            // Mark records as processed
-            statement.executeUpdate("UPDATE users SET processed = true WHERE processed = false LIMIT 10");
-        } catch (Exception e) {
-            throw new RuntimeException("Error polling data from PostgreSQL", e);
+        } catch (SQLException e) {
+            log.error("Failed to query records from Postgres", e);
         }
+
         return records;
     }
 
     @Override
     public void stop() {
+        log.info("PostgresSourceTask stopping.");
         try {
             if (connection != null) connection.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            log.error("Failed to close Postgres connection", e);
         }
     }
-
-    @Override
-    public String version() {
-        return "1.0";
-    }
 }
+
 
 

@@ -3,9 +3,9 @@ curl -X POST -H "Content-Type: application/json" --data '{
   "config": {
     "connector.class": "com.example.kafka.connect.PostgresSourceConnector",
     "tasks.max": "1",
-    "db.url": "jdbc:postgresql://localhost:5432/kafka_connect_db",
-    "db.user": "postgres",
-    "db.password": "your_password",
+    "postgres.url": "jdbc:postgresql://localhost:5432/kafka_connect_db",
+    "postgres.user": "postgres",
+    "postgres.password": "your_password",
     "topic": "my_kafka_topic"
   }
 }' http://localhost:8083/connectors

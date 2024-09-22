@@ -35,3 +35,8 @@ This project demonstrates custom **Kafka Connectors** for PostgreSQL as both a *
    
 2. Build the project using Maven. This will package your code and dependencies into a single JAR file:
     mvn clean package
+
+3. Summary of Method Triggers
+   Connector Lifecycle:
+   start() (Connector) → taskConfigs() → start() (each Task) → put() (Sink Task) or poll() (Source Task)
+   stop() (each Task) → stop() (Connector)

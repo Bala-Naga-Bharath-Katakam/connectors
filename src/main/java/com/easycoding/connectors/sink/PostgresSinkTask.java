@@ -2,59 +2,70 @@ package com.easycoding.connectors.sink;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 public class PostgresSinkTask extends SinkTask {
+
     private Connection connection;
+    private String insertQuery = "INSERT INTO my_table (id, value) VALUES (?, ?)";
 
     @Override
-    public void start(Map<String, String> props) {
+    public String version() {
+        return new PostgresSinkConnector().version();
+    }
+
+    @Override
+    public void start(Map<String, String> config) {
+        log.info("PostgresSinkTask starting with config: {}", config);
+
         try {
-            connection = DriverManager.getConnection(props.get("db.url"), props.get("db.user"), props.get("db.password"));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to establish PostgreSQL connection", e);
+            String url = config.get("postgres.url");
+            String username = config.get("postgres.username");
+            String password = config.get("postgres.password");
+            connection = DriverManager.getConnection(url, username, password);
+            log.info("Connected to Postgres at {}", url);
+        } catch (SQLException e) {
+            log.error("Failed to connect to Postgres", e);
+            throw new ConnectException("Failed to connect to Postgres", e);
         }
     }
 
     @Override
     public void put(Collection<SinkRecord> records) {
-        try {
+        log.info("Received {} records for processing.", records.size());
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
             for (SinkRecord record : records) {
-                String jsonValue = (String) record.value();
-                // Parse JSON string into a Map using Jackson
-                ObjectMapper objectMapper = new ObjectMapper();
-                Map<String, Object> valueMap = objectMapper.readValue(jsonValue, Map.class);
-                PreparedStatement preparedStatement = connection.prepareStatement(
-                        "INSERT INTO users (name, email) VALUES (?, ?)"
-                );
-                preparedStatement.setString(1, (String) valueMap.get("name"));
-                preparedStatement.setString(2, (String) valueMap.get("email"));
+                log.debug("Processing record: {}", record);
+                preparedStatement.setInt(1, (Integer) record.key());
+                preparedStatement.setString(2, (String) record.value());
                 preparedStatement.executeUpdate();
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Error writing to PostgreSQL", e);
+        } catch (SQLException e) {
+            log.error("Failed to insert records into Postgres", e);
         }
     }
 
     @Override
     public void stop() {
+        log.info("PostgresSinkTask stopping.");
         try {
             if (connection != null) connection.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            log.error("Failed to close Postgres connection", e);
         }
     }
-
-    @Override
-    public String version() {
-        return "1.0";
-    }
 }
+
